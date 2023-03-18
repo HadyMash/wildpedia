@@ -18,11 +18,12 @@ class _HomeState extends State<Home> {
     ..setNavigationDelegate(
       NavigationDelegate(
         onProgress: (progress) {
-          debugPrint(progress.toString());
+          debugPrint(this.progress.toString());
           setState(() => this.progress += progress -
               (this.progress < 100 ? this.progress : this.progress - 100));
         },
         onPageStarted: (String url) {
+          _loading = true;
           // TODO: check to see if the tool still works
           // Magnus tool random article uri.host: 'tools.wmflabs.org'
           // Wikipedia ur.host: 'en.wikipedia.org'
@@ -31,6 +32,7 @@ class _HomeState extends State<Home> {
           }
         },
         onPageFinished: (String url) async {
+          _loading = false;
           final canGoBack = await _controller.canGoBack();
           final canGoForward = await _controller.canGoForward();
           setState(() {
@@ -41,6 +43,12 @@ class _HomeState extends State<Home> {
               pages.add(uri);
               _pagesIndex++;
               _randomPage = false;
+              Future.delayed(const Duration(milliseconds: 250), () {
+                if (!_loading) {
+                  setState(() => progress = -1);
+                  debugPrint('setting progress to -1');
+                }
+              });
             }
 
             this.canGoBack = canGoBack;
@@ -59,6 +67,7 @@ class _HomeState extends State<Home> {
   List<Uri> pages = [];
   int _pagesIndex = -1;
   bool _randomPage = true;
+  bool _loading = false;
 
   // default padding is 16.0
   final double _cupertinoButtonPadding = 12;
@@ -83,12 +92,12 @@ class _HomeState extends State<Home> {
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                // TODO: fix progress bar only being half the page
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   color: Theme.of(context).colorScheme.primary,
-                  height: progress == 200 ? 0 : 10,
-                  width: MediaQuery.of(context).size.width * (progress / 200),
+                  height: progress == 200 || progress < 0 ? 0 : 10,
+                  width: MediaQuery.of(context).size.width *
+                      (max(progress, 0) / 200),
                 ),
               ),
               Expanded(
@@ -111,6 +120,7 @@ class _HomeState extends State<Home> {
                   onPressed: max(0, _pagesIndex) == 0
                       ? null
                       : () => setState(() {
+                            progress = 100;
                             _controller
                                 .loadRequest(pages[max(--_pagesIndex, 0)]);
                           }),
