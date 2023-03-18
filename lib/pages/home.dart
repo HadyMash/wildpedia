@@ -153,12 +153,12 @@ class _HomeState extends State<Home> {
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
                 child: Icon(
-                  Icons.settings,
+                  Icons.menu,
                   size: _iconSize,
                   color: Colors.black,
                 ),
                 onPressed: () {
-                  // TODO add dialog box with settings
+                  // TODO add menu with options
                 },
               ),
               CupertinoButton(
