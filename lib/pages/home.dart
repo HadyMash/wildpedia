@@ -10,53 +10,9 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
+// TODO: check to see what happens if a page other than wmflabs or wikipedia is loaded
 class _HomeState extends State<Home> {
-  // TODO: update background color with theme
-  late final WebViewController _controller = WebViewController()
-    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..setBackgroundColor(Colors.white)
-    ..setNavigationDelegate(
-      NavigationDelegate(
-        onProgress: (progress) {
-          debugPrint(this.progress.toString());
-          setState(() => this.progress += progress -
-              (this.progress < 100 ? this.progress : this.progress - 100));
-        },
-        onPageStarted: (String url) {
-          _loading = true;
-          // TODO: check to see if the tool still works
-          // Magnus tool random article uri.host: 'tools.wmflabs.org'
-          // Wikipedia ur.host: 'en.wikipedia.org'
-          if (Uri.parse(url).host.contains('wmflabs.org')) {
-            progress = 0;
-          }
-        },
-        onPageFinished: (String url) async {
-          _loading = false;
-          final canGoBack = await _controller.canGoBack();
-          final canGoForward = await _controller.canGoForward();
-          setState(() {
-            var uri = Uri.parse(url);
-            // Magnus tool random article uri.host: 'tools.wmflabs.org'
-            // Wikipedia ur.host: 'en.wikipedia.org'
-            if (uri.host.contains('wikipedia.org') && _randomPage) {
-              pages.add(uri);
-              _pagesIndex++;
-              _randomPage = false;
-              Future.delayed(const Duration(milliseconds: 250), () {
-                if (!_loading) {
-                  setState(() => progress = -1);
-                  debugPrint('setting progress to -1');
-                }
-              });
-            }
-
-            this.canGoBack = canGoBack;
-            this.canGoForward = canGoForward;
-          });
-        },
-      ),
-    );
+  late final WebViewController _controller;
   int progress = 0;
   bool canGoBack = false;
   bool canGoForward = false;
@@ -77,7 +33,57 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            debugPrint(this.progress.toString());
+            setState(() => this.progress += progress -
+                (this.progress < 100 ? this.progress : this.progress - 100));
+          },
+          onPageStarted: (String url) {
+            _loading = true;
+            // TODO: check to see if the tool still works
+            // Magnus tool random article uri.host: 'tools.wmflabs.org'
+            // Wikipedia ur.host: 'en.wikipedia.org'
+            if (Uri.parse(url).host.contains('wmflabs.org')) {
+              progress = 0;
+            }
+          },
+          onPageFinished: (String url) async {
+            _loading = false;
+            final canGoBack = await _controller.canGoBack();
+            final canGoForward = await _controller.canGoForward();
+            setState(() {
+              var uri = Uri.parse(url);
+              // Magnus tool random article uri.host: 'tools.wmflabs.org'
+              // Wikipedia ur.host: 'en.wikipedia.org'
+              if (uri.host.contains('wikipedia.org') && _randomPage) {
+                pages.add(uri);
+                _pagesIndex++;
+                _randomPage = false;
+                Future.delayed(const Duration(milliseconds: 250), () {
+                  if (!_loading) {
+                    setState(() => progress = -1);
+                    debugPrint('setting progress to -1');
+                  }
+                });
+              }
+
+              this.canGoBack = canGoBack;
+              this.canGoForward = canGoForward;
+            });
+          },
+        ),
+      );
     _controller.loadRequest(Uri.parse(_url(category: 'Physics')));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.setBackgroundColor(Theme.of(context).scaffoldBackgroundColor);
   }
 
   @override
