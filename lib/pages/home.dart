@@ -44,7 +44,6 @@ class _HomeState extends State<Home> {
           },
           onPageStarted: (String url) {
             _loading = true;
-            // TODO: check to see if the tool still works
             // Magnus tool random article uri.host: 'tools.wmflabs.org'
             // Wikipedia ur.host: 'en.wikipedia.org'
             if (Uri.parse(url).host.contains('wmflabs.org')) {
@@ -63,6 +62,8 @@ class _HomeState extends State<Home> {
                 pages.add(uri);
                 _pagesIndex++;
                 _randomPage = false;
+              }
+              if (!uri.host.contains('wmflabs.org')) {
                 Future.delayed(const Duration(milliseconds: 250), () {
                   if (!_loading) {
                     setState(() => progress = -1);
