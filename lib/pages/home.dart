@@ -3,6 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'history.dart';
+import 'settings.dart';
+
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -10,25 +13,20 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-// TODO: check to see what happens if a page other than wmflabs or wikipedia is loaded
+// TODO: update colors to use theme colors
 class _HomeState extends State<Home> {
   late final WebViewController _controller;
   int progress = 0;
   bool canGoBack = false;
   bool canGoForward = false;
 
-  final Color _clickable = Colors.black;
-  final Color _unclickable = Colors.grey;
-
-  List<Uri> pages = [];
-  int _pagesIndex = -1;
   bool _randomPage = true;
-  bool _loading = false;
 
+  // TODO: replace both with theme values
   // default padding is 16.0
   final double _cupertinoButtonPadding = 12;
   // default size is 24.0
-  final double _iconSize = 24;
+  static const double _iconSize = 24.0;
 
   @override
   void initState() {
@@ -38,20 +36,22 @@ class _HomeState extends State<Home> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
-            debugPrint(this.progress.toString());
-            setState(() => this.progress += progress -
-                (this.progress < 100 ? this.progress : this.progress - 100));
+            debugPrint(progress.toString());
+            setState(() => this.progress = progress);
+            // debugPrint(this.progress.toString());
+            // setState(() => this.progress += progress -
+            //     (this.progress < 100 ? this.progress : this.progress - 100));
           },
           onPageStarted: (String url) {
-            _loading = true;
+            debugPrint('started loading $url');
             // Magnus tool random article uri.host: 'tools.wmflabs.org'
-            // Wikipedia ur.host: 'en.wikipedia.org'
-            if (Uri.parse(url).host.contains('wmflabs.org')) {
-              progress = 0;
-            }
+            // Wikipedia uri.host: 'en.wikipedia.org'
+            // if (Uri.parse(url).host.contains('wmflabs.org')) {
+            //   progress = 0;
+            // }
           },
           onPageFinished: (String url) async {
-            _loading = false;
+            debugPrint('finished loading $url');
             final canGoBack = await _controller.canGoBack();
             final canGoForward = await _controller.canGoForward();
             setState(() {
@@ -59,18 +59,17 @@ class _HomeState extends State<Home> {
               // Magnus tool random article uri.host: 'tools.wmflabs.org'
               // Wikipedia ur.host: 'en.wikipedia.org'
               if (uri.host.contains('wikipedia.org') && _randomPage) {
-                pages.add(uri);
-                _pagesIndex++;
                 _randomPage = false;
+                // TODO: add page to history
               }
-              if (!uri.host.contains('wmflabs.org')) {
-                Future.delayed(const Duration(milliseconds: 250), () {
-                  if (!_loading) {
-                    setState(() => progress = -1);
-                    debugPrint('setting progress to -1');
-                  }
-                });
-              }
+              // if (!uri.host.contains('wmflabs.org')) {
+              //   Future.delayed(const Duration(milliseconds: 250), () {
+              //     if (!_loading) {
+              //       setState(() => progress = -1);
+              //       debugPrint('setting progress to -1');
+              //     }
+              //   });
+              // }
 
               this.canGoBack = canGoBack;
               this.canGoForward = canGoForward;
@@ -78,7 +77,8 @@ class _HomeState extends State<Home> {
           },
         ),
       );
-    _controller.loadRequest(Uri.parse(_url(category: 'Physics')));
+    _controller
+        .loadRequest(_newUri('en', 'Physics', _randomIntBetween(1, max(1, 3))));
   }
 
   @override
@@ -102,9 +102,9 @@ class _HomeState extends State<Home> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   color: Theme.of(context).colorScheme.primary,
-                  height: progress == 200 || progress < 0 ? 0 : 10,
+                  height: progress == 100 || progress < 0 ? 0 : 10,
                   width: MediaQuery.of(context).size.width *
-                      (max(progress, 0) / 200),
+                      (max(progress, 0) / 100),
                 ),
               ),
               Expanded(
@@ -119,83 +119,101 @@ class _HomeState extends State<Home> {
         child: IntrinsicHeight(
           child: Row(
             mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              const Spacer(flex: 2),
-              Expanded(
-                flex: 16,
-                child: ElevatedButton(
-                  onPressed: max(0, _pagesIndex) == 0
-                      ? null
-                      : () => setState(() {
-                            progress = 100;
-                            _controller
-                                .loadRequest(pages[max(--_pagesIndex, 0)]);
-                          }),
-                  child: const Text('Previous'),
-                ),
-              ),
-              const Spacer(flex: 2),
-              const VerticalDivider(
-                color: Colors.grey,
-                thickness: 1,
-                width: 4,
-                indent: 10,
-                endIndent: 10,
-              ),
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
+                onPressed: canGoBack ? _controller.goBack : null,
                 child: Icon(
-                  CupertinoIcons.back,
+                  Icons.arrow_back_ios,
                   size: _iconSize,
-                  color: canGoBack ? _clickable : _unclickable,
+                  color: canGoBack ? Colors.black : Colors.grey,
                 ),
-                onPressed: () => _controller.goBack(),
               ),
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
-                child: Icon(
+                onPressed: () {
+                  // TODO add menu with options
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    clipBehavior: Clip.hardEdge,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    builder: (context) => SafeArea(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Wrap(
+                            children: [
+                              _ModalBottomSheetTile(
+                                icon: Icons.refresh,
+                                title: 'Reload',
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  _controller.reload();
+                                },
+                              ),
+                              _ModalBottomSheetTile(
+                                icon: Icons.history,
+                                title: 'History',
+                                onTap: () {
+                                  Navigator.of(context).pop();
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const History(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              _ModalBottomSheetTile(
+                                icon: Icons.settings,
+                                title: 'Settings',
+                                onTap: () {
+                                  Navigator.of(context).pop();
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const Settings(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: const Icon(
                   Icons.menu,
                   size: _iconSize,
                   color: Colors.black,
                 ),
-                onPressed: () {
-                  // TODO add menu with options
-                },
               ),
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
+                onPressed: () => setState(() {
+                  if (canGoForward) {
+                    _controller.goForward();
+                  } else {
+                    _randomPage = true;
+                    // TODO: get language and category and depth from settings
+                    // TODO: get random category
+                    _controller.loadRequest(_newUri(
+                        'en', 'Physics', _randomIntBetween(1, max(1, 3))));
+                    // TODO: add page to history
+                  }
+                }),
                 child: Icon(
-                  CupertinoIcons.forward,
+                  canGoForward ? Icons.arrow_forward_ios : Icons.add,
                   size: _iconSize,
-                  color: canGoForward ? _clickable : _unclickable,
-                ),
-                onPressed: () => _controller.goForward(),
-              ),
-              const VerticalDivider(
-                color: Colors.grey,
-                thickness: 1,
-                width: 4,
-                indent: 10,
-                endIndent: 10,
-              ),
-              const Spacer(flex: 2),
-              Expanded(
-                flex: 16,
-                child: ElevatedButton(
-                  child: Text(pages.length - 1 > _pagesIndex ? 'Next' : 'New'),
-                  onPressed: () => setState(() {
-                    if (pages.length - 1 > _pagesIndex) {
-                      progress = 100;
-                      _controller.loadRequest(pages[max(0, ++_pagesIndex)]);
-                    } else {
-                      _randomPage = true;
-                      _controller
-                          .loadRequest(Uri.parse(_url(category: 'Physics')));
-                    }
-                  }),
+                  color: Colors.black,
                 ),
               ),
-              const Spacer(flex: 2),
             ],
           ),
         ),
@@ -204,16 +222,53 @@ class _HomeState extends State<Home> {
   }
 }
 
-String _url(
-        {String language = 'en', required String category, int depth = 3}) =>
-    'https://tools.wmflabs.org/magnustools/randomarticle.php?lang=$language&project=wikipedia&categories=${category.replaceAll(' ', '+')}&d=${randomInt(1, max(1, depth))}';
+Uri _newUri(String language, String category, int depth) =>
+    Uri.https('tools.wmflabs.org', '/magnustools/randomarticle.php', {
+      'lang': language,
+      'project': 'wikipedia',
+      'categories': category,
+      'd': depth.toString(),
+    });
 
-int randomInt(int min, int max) {
+/// Generates a random number between [min] and [max] (inclusive).
+int _randomIntBetween(int min, int max) {
   if (min > max) {
     int tempMin = min;
     min = max;
     max = tempMin;
   }
 
-  return min + Random().nextInt(max - min);
+  return min + Random().nextInt(max - min + 1);
+}
+
+class _ModalBottomSheetTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  // default size is 24.0
+  static const double _iconSize = 24.0;
+
+  const _ModalBottomSheetTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title),
+      leading: CircleAvatar(
+        backgroundColor: Theme.of(context).primaryColor,
+        child: Icon(
+          icon,
+          size: _iconSize,
+          color: Colors.white,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
 }
