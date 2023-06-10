@@ -6,14 +6,12 @@ class History extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // TODO: add app bar with tabs for history and bookmarks
       appBar: AppBar(
         title: const Text('History'),
-        // leading: IconButton(
-        //   icon: const Icon(Icons.close),
-        //   onPressed: () => Navigator.of(context).pop(),
-        // ),
       ),
       // TODO: get history from storage and load it in
+      // TODO: add bookmarks
     );
   }
 }

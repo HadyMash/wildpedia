@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:wildpedia/services/storage.dart';
 
 import 'history.dart';
 import 'settings.dart';
@@ -120,6 +123,7 @@ class _HomeState extends State<Home> {
           child: Row(
             mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // TODO: add 'add to bookmarks' button
             children: [
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
@@ -153,6 +157,20 @@ class _HomeState extends State<Home> {
                                 onTap: () {
                                   Navigator.of(context).pop();
                                   _controller.reload();
+                                },
+                              ),
+                              _ModalBottomSheetTile(
+                                icon: Icons.bookmark,
+                                title: 'Bookmarks',
+                                onTap: () {
+                                  Navigator.of(context).pop();
+
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      // TODO: pass bookmarks param to set tab to bookmarks by default
+                                      builder: (context) => const History(),
+                                    ),
+                                  );
                                 },
                               ),
                               _ModalBottomSheetTile(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wildpedia/pages/home.dart';
 
+// TODO: create storage instance to get the document directory ahead of time
 void main() {
   runApp(const MyApp());
 }
