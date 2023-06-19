@@ -1,37 +1,30 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-import 'package:flutter/cupertino.dart';
-import 'package:path/path.dart' as path;
+import 'package:flutter/material.dart';
+import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wildpedia/data/article.dart';
 
-// TODO: replace factory with getInstance method
+// TODO: replace factory with get instance method
 class LocalStorage {
   static final LocalStorage _instance = LocalStorage._internal();
-  static const int maxFileEntries = 100;
 
-  late final Directory _documentsDirectory;
+  late Isar _isar;
   late List<String> _categories;
-  late ({int bookmarks, int history}) _indices;
-
-  // TODO: remove after testing
-  // ! temp
-  get indices => _indices;
-  get documentsDirectory => _documentsDirectory;
-  Stopwatch stopwatch = Stopwatch();
 
   factory LocalStorage() {
     return _instance;
   }
 
   LocalStorage._internal() {
-    stopwatch.start();
     getApplicationDocumentsDirectory()
-        .then((dir) => _documentsDirectory = dir)
-        .then((_) async => _indices = (await _getFileIndex()));
+        .then((documentsDirectory) async => _isar = await Isar.open(
+              [ArticleSchema],
+              directory: documentsDirectory.path,
+              // TODO: disable when done testing
+              inspector: true,
+            ));
     _getSavedCategories().then((value) => _categories = value);
+    debugPrint('LocalStorage initialized');
   }
 
   Future<List<String>> _getSavedCategories() async {
@@ -39,94 +32,64 @@ class LocalStorage {
     return prefs.getStringList('categories') ?? [];
   }
 
-  // profile this function and see if it needs optimisation since it loops twice to filter bookmarks and history files then loops over to find the largest index when it can loop over everything once and find the largest index for each using regex
-  // potential regex for finding the largest index for either `RegExp regex = RegExp(r'(history|bookmark)(\d+)\.json');`
-  Future<({int bookmarks, int history})> _getFileIndex() async {
-    final RegExp bookmarksRegex = RegExp(r'^bookmarks\d+\.json$');
-    final RegExp historyRegex = RegExp(r'^history\d+\.json$');
-
-    final List<FileSystemEntity> entities =
-        await _documentsDirectory.list().toList();
-    List<File> bookmarkFiles = entities
-        .where((e) =>
-            (e is File) && (bookmarksRegex.hasMatch(path.basename(e.path))))
-        .cast<File>()
-        .toList();
-    List<File> historyFiles = entities
-        .where((e) =>
-            (e is File) && (historyRegex.hasMatch(path.basename(e.path))))
-        .cast<File>()
-        .toList();
-
-    int bookmark = 0, history = 0;
-    final RegExp indexRegex = RegExp(r'(\d+)');
-
-    for (var file in bookmarkFiles) {
-      Match? match = indexRegex.firstMatch(path.basename(file.path));
-      if (match != null) {
-        bookmark = max(bookmark, int.parse(match.group(1)!));
-      }
-    }
-
-    for (var file in historyFiles) {
-      Match? match = indexRegex.firstMatch(path.basename(file.path));
-      if (match != null) {
-        history = max(history, int.parse(match.group(1)!));
-      }
-    }
-
-    // TODO: check if the existing file has reached the max limit and create a new file and increment the index for bookmark and history
-    return (bookmarks: bookmark, history: history);
-  }
-
-  // TODO: make private after testing
-  Future<List?> getFileEntries(File file) async {
-    try {
-      if (await file.exists()) {
-        var input = await file.readAsString();
-        var map = jsonDecode(input);
-        var entries = map['entries'] as List;
-        return entries
-            .map((entry) => Article(
-                  title: entry['title'],
-                  dateAccessed: DateTime.fromMillisecondsSinceEpoch(
-                      entry['dateAccessed']),
-                  url: entry['url'],
-                ))
-            .toList();
-      } else {
-        throw Exception('File does not exist');
-      }
-    } catch (e) {
-      debugPrint('error in getFileEntries: $e');
-    }
-  }
-
-  // TODO: make private after testing
-  Future<int> getFileEntryCount(File file) async {
-    try {
-      if (await file.exists()) {
-        var input = await file.readAsString();
-        var map = jsonDecode(input);
-        var entries = map['entries'] as List;
-        return entries.length;
-      } else {
-        throw Exception('File does not exist');
-      }
-    } catch (e) {
-      debugPrint('error in getFileEntryCount: $e');
-    }
-    return 0;
-  }
-
-  // TODO: add create file method
-
   List<String> get categories => _categories;
 
   set categories(List<String> categories) {
     _categories = categories;
     SharedPreferences.getInstance().then((prefs) {
       prefs.setStringList('categories', categories);
+    });
+  }
+
+  Future<void> addArticleToHistory(Article article) async {
+    await _isar.writeTxn(() async {
+      // TODO: check if article was seen before and bookmarked to avoid losing bookmarks
+      await _isar.articles.put(article);
+      // ! temp // TODO: remove this
+      debugPrint('Added article to history: $article');
+    });
+  }
+
+  Future<({List<Article> articles, bool hasNext})> paginateBookmarkedArticles(
+      [DateTime? after, int limit = 20]) async {
+    var articles = await _isar.articles
+        .where()
+        .bookmarkedEqualTo(true)
+        .filter()
+        .dateAccessedLessThan(after ?? DateTime.now())
+        .sortByDateAccessedDesc()
+        .limit(limit)
+        .findAll();
+
+    return (articles: articles, hasNext: articles.length == limit);
+  }
+
+  Future<({List<Article> articles, bool hasNext})> paginateArticles(
+      [DateTime? after, int limit = 20]) async {
+    var articles = await _isar.articles
+        .where()
+        .dateAccessedLessThan(after ?? DateTime.now())
+        .sortByDateAccessedDesc()
+        .limit(limit)
+        .findAll();
+
+    return (articles: articles, hasNext: articles.length == limit);
+  }
+
+  Future<List<Article>> searchArticles(String query) async {
+    return await _isar.articles
+        .filter()
+        .titleContains(query, caseSensitive: false)
+        .findAll();
+  }
+
+  Future<Article?> getArticle(Id id) async {
+    return await _isar.articles.get(id);
+  }
+
+  Future<void> deleteArticle(Id id) async {
+    await _isar.writeTxn(() async {
+      await _isar.articles.delete(id);
     });
   }
 }

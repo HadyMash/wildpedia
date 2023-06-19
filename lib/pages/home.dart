@@ -1,10 +1,11 @@
-import 'dart:io';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:wildpedia/data/article.dart';
 import 'package:wildpedia/services/storage.dart';
+import 'package:wildpedia/services/wikipedia.dart';
+import 'package:wildpedia/shared/snackbars.dart' as snackbars;
 
 import 'history.dart';
 import 'settings.dart';
@@ -20,10 +21,9 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   late final WebViewController _controller;
   int progress = 0;
+  Future<int?>? pageIdFuture;
   bool canGoBack = false;
   bool canGoForward = false;
-
-  bool _randomPage = true;
 
   // TODO: replace both with theme values
   // default padding is 16.0
@@ -34,6 +34,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    LocalStorage();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -45,37 +46,45 @@ class _HomeState extends State<Home> {
             // setState(() => this.progress += progress -
             //     (this.progress < 100 ? this.progress : this.progress - 100));
           },
-          onPageStarted: (String url) {
+          onPageStarted: (String url) async {
             debugPrint('started loading $url');
-            // Magnus tool random article uri.host: 'tools.wmflabs.org'
-            // Wikipedia uri.host: 'en.wikipedia.org'
-            // if (Uri.parse(url).host.contains('wmflabs.org')) {
-            //   progress = 0;
-            // }
+            pageIdFuture = null;
+            pageIdFuture = Wikipedia.getPageId(Uri.parse(url).pathSegments[1]);
           },
           onPageFinished: (String url) async {
             debugPrint('finished loading $url');
-            final canGoBack = await _controller.canGoBack();
-            final canGoForward = await _controller.canGoForward();
-            setState(() {
-              var uri = Uri.parse(url);
-              // Magnus tool random article uri.host: 'tools.wmflabs.org'
-              // Wikipedia ur.host: 'en.wikipedia.org'
-              if (uri.host.contains('wikipedia.org') && _randomPage) {
-                _randomPage = false;
-                // TODO: add page to history
+            final Uri uri = Uri.parse(url);
+            // TODO: update to work with wikiwand
+            // TODO: update to work with other languages
+            // TODO: run this in a separate isolate
+            if (uri.host.contains('wikipedia') &&
+                uri.path.startsWith('/wiki/')) {
+              try {
+                final title = uri.pathSegments[1];
+                final pageId = await pageIdFuture;
+                if (pageId == null) {
+                  throw Exception('pageId is null');
+                }
+                LocalStorage().addArticleToHistory(Article(
+                  id: pageId,
+                  title: title.replaceAll('_', ' '),
+                  dateAccessed: DateTime.now(),
+                  url: url,
+                ));
+              } catch (e) {
+                debugPrint('error adding page to history: $e');
+                ScaffoldMessenger.of(context).showSnackBar(snackbars
+                    .errorSnackBar(context, 'Error adding page to history'));
               }
-              // if (!uri.host.contains('wmflabs.org')) {
-              //   Future.delayed(const Duration(milliseconds: 250), () {
-              //     if (!_loading) {
-              //       setState(() => progress = -1);
-              //       debugPrint('setting progress to -1');
-              //     }
-              //   });
-              // }
+            }
+            List<bool> browserNavigation = await Future.wait([
+              _controller.canGoBack(),
+              _controller.canGoForward(),
+            ]);
 
-              this.canGoBack = canGoBack;
-              this.canGoForward = canGoForward;
+            setState(() {
+              canGoBack = browserNavigation[0];
+              canGoForward = browserNavigation[1];
             });
           },
         ),
@@ -123,7 +132,7 @@ class _HomeState extends State<Home> {
           child: Row(
             mainAxisSize: MainAxisSize.max,
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            // TODO: add 'add to bookmarks' button
+            // TODO: update buttons to use theme data for colors
             children: [
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
@@ -136,8 +145,16 @@ class _HomeState extends State<Home> {
               ),
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
+                onPressed: () => _controller.reload(),
+                child: const Icon(
+                  Icons.refresh,
+                  size: _iconSize,
+                  color: Colors.black,
+                ),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.all(_cupertinoButtonPadding),
                 onPressed: () {
-                  // TODO add menu with options
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
@@ -151,14 +168,14 @@ class _HomeState extends State<Home> {
                           padding: const EdgeInsets.only(top: 16),
                           child: Wrap(
                             children: [
-                              _ModalBottomSheetTile(
-                                icon: Icons.refresh,
-                                title: 'Reload',
-                                onTap: () {
-                                  Navigator.of(context).pop();
-                                  _controller.reload();
-                                },
-                              ),
+                              // _ModalBottomSheetTile(
+                              //   icon: Icons.refresh,
+                              //   title: 'Reload',
+                              //   onTap: () {
+                              //     Navigator.of(context).pop();
+                              //     _controller.reload();
+                              //   },
+                              // ),
                               _ModalBottomSheetTile(
                                 icon: Icons.bookmark,
                                 title: 'Bookmarks',
@@ -167,8 +184,8 @@ class _HomeState extends State<Home> {
 
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      // TODO: pass bookmarks param to set tab to bookmarks by default
-                                      builder: (context) => const History(),
+                                      builder: (context) => History(_controller,
+                                          initialView: HistoryView.bookmarks),
                                     ),
                                   );
                                 },
@@ -181,9 +198,21 @@ class _HomeState extends State<Home> {
 
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (context) => const History(),
+                                      builder: (context) =>
+                                          History(_controller),
                                     ),
                                   );
+                                },
+                              ),
+                              // TODO: add bug report functionality
+                              _ModalBottomSheetTile(
+                                icon: Icons.bug_report,
+                                title: 'Report Bug',
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      snackbars.warningSnackBar(context,
+                                          'This feature is not yet implemented'));
                                 },
                               ),
                               _ModalBottomSheetTile(
@@ -214,11 +243,23 @@ class _HomeState extends State<Home> {
               ),
               CupertinoButton(
                 padding: EdgeInsets.all(_cupertinoButtonPadding),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      snackbars.warningSnackBar(
+                          context, 'This feature is not yet implemented'));
+                },
+                child: const Icon(
+                  Icons.bookmark_add_outlined,
+                  size: _iconSize,
+                  color: Colors.black,
+                ),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.all(_cupertinoButtonPadding),
                 onPressed: () => setState(() {
                   if (canGoForward) {
                     _controller.goForward();
                   } else {
-                    _randomPage = true;
                     // TODO: get language and category and depth from settings
                     // TODO: get random category
                     _controller.loadRequest(_newUri(
@@ -271,7 +312,6 @@ class _ModalBottomSheetTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
-    super.key,
   });
 
   @override
