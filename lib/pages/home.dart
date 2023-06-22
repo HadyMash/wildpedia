@@ -262,6 +262,7 @@ class _HomeState extends State<Home> {
                   } else {
                     // TODO: get language and category and depth from settings
                     // TODO: get random category
+                    // TODO: check if the button was already pressed to avoid loading multiple times
                     _controller.loadRequest(_newUri(
                         'en', 'Physics', _randomIntBetween(1, max(1, 3))));
                     // TODO: add page to history
