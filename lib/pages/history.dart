@@ -24,8 +24,8 @@ class History extends StatelessWidget {
           title: const Text('[insert search bar]'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'History'),
               Tab(text: 'Bookmarks'),
+              Tab(text: 'History'),
             ],
           ),
         ),
@@ -33,13 +33,18 @@ class History extends StatelessWidget {
         body: TabBarView(
           children: [
             _PaginatedView(
-                paginationFunction: LocalStorage().paginateArticles,
-                onTap: (url) {
-                  webViewController.loadRequest(Uri.parse(url));
-                  Navigator.of(context).pop();
-                }),
-            const Center(
-              child: Text('Bookmarks'),
+              paginationFunction: LocalStorage().paginateBookmarkedArticles,
+              onTap: (url) {
+                webViewController.loadRequest(Uri.parse(url));
+                Navigator.of(context).pop();
+              },
+            ),
+            _PaginatedView(
+              paginationFunction: LocalStorage().paginateArticles,
+              onTap: (url) {
+                webViewController.loadRequest(Uri.parse(url));
+                Navigator.of(context).pop();
+              },
             ),
           ],
         ),
@@ -48,6 +53,7 @@ class History extends StatelessWidget {
   }
 }
 
+// TODO: get rid of onTap and use provider to get the webview controller instead
 class _PaginatedView extends StatefulWidget {
   final _PaginationFunction paginationFunction;
   final void Function(String url) onTap;
@@ -132,6 +138,7 @@ class _PaginatedViewState extends State<_PaginatedView> {
                     startActionPane: ActionPane(
                       motion: const DrawerMotion(),
                       dismissible: DismissiblePane(onDismissed: onDismissed),
+                      extentRatio: 1 / 4,
                       children: [
                         SlidableAction(
                           backgroundColor: Colors.red,
@@ -156,7 +163,12 @@ class _PaginatedViewState extends State<_PaginatedView> {
                               : Icons.bookmark_outline,
                         ),
                         color: Theme.of(context).primaryColor,
-                        onPressed: () {},
+                        onPressed: () async {
+                          await storage.setArticleBookmark(
+                              article.id, !(article.bookmarked ?? false));
+                          setState(() => article.bookmarked =
+                              !(article.bookmarked ?? false));
+                        },
                       ),
                       onTap: () => widget.onTap(article.url),
                     ),
@@ -194,6 +206,6 @@ typedef _PaginationFunction = Future<({List<Article> articles, bool hasNext})>
     Function([DateTime? after, int limit]);
 
 enum HistoryView {
-  history,
   bookmarks,
+  history,
 }

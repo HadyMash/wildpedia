@@ -4,7 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wildpedia/data/article.dart';
 
-// TODO: replace factory with get instance method
+// TODO: replace factory with get instance method and await it before use to insure initialisation
 class LocalStorage {
   static final LocalStorage _instance = LocalStorage._internal();
 
@@ -20,8 +20,6 @@ class LocalStorage {
         .then((documentsDirectory) async => _isar = await Isar.open(
               [ArticleSchema],
               directory: documentsDirectory.path,
-              // TODO: disable when done testing
-              inspector: true,
             ));
     _getSavedCategories().then((value) => _categories = value);
     debugPrint('LocalStorage initialized');
@@ -41,12 +39,47 @@ class LocalStorage {
     });
   }
 
-  Future<void> addArticleToHistory(Article article) async {
+  /// Adds [article] to the database, [existingArticle] is used to preserve
+  /// the bookmarked state of the article in case the page was visited
+  /// before and the user bookmarked it. If [existingArticle] is null a read
+  /// transaction is used to check if the article is already in the database.
+  ///
+  /// * All values for [existingArticle] are ignored except for [Article.bookmarked]
+  Future<void> addArticleToHistory(Article article,
+      [Article? existingArticle]) async {
     await _isar.writeTxn(() async {
-      // TODO: check if article was seen before and bookmarked to avoid losing bookmarks
+      existingArticle ??= await _isar.articles.get(article.id);
+      article.bookmarked = existingArticle?.bookmarked;
       await _isar.articles.put(article);
-      // ! temp // TODO: remove this
-      debugPrint('Added article to history: $article');
+    });
+  }
+
+  /// Sets [Article.bookmarked] of the article with [id] to [value].
+  /// Throws an exception if the article with [id] does not exist.
+  Future<void> setArticleBookmark(Id id, bool value) async {
+    await _isar.writeTxn(() async {
+      var article = await _isar.articles.get(id);
+      if (article == null) {
+        throw Exception('Article with id $id not found');
+      }
+      article.bookmarked = value;
+      await _isar.articles.put(article);
+      // ! temp // TODO: remove after testing
+      print('article bookmark set: $article');
+    });
+  }
+
+  /// Toggles the bookmarked state of the article with [id].
+  /// If [Article.bookmarked] is null, it is set to true.
+  /// Throws an exception if the article with [id] does not exist.
+  Future<void> toggleArticleBookmark(Id id) async {
+    await _isar.writeTxn(() async {
+      var article = await _isar.articles.get(id);
+      if (article == null) {
+        throw Exception('Article with id $id not found');
+      }
+      article.bookmarked = !(article.bookmarked ?? false);
+      await _isar.articles.put(article);
     });
   }
 
