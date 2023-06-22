@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -164,15 +166,15 @@ class _PaginatedViewState extends State<_PaginatedView> {
                     return Column(
                       children: [
                         slidable,
-                        Offstage(
-                          offstage: !hasNext,
-                          child: const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 16.0, bottom: 8.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                        )
+                        Padding(
+                          padding: EdgeInsets.only(
+                              top: 16.0,
+                              bottom: max(
+                                  8.0, MediaQuery.of(context).padding.bottom)),
+                          child: hasNext
+                              ? const CircularProgressIndicator()
+                              : const Text('No more articles'),
+                        ),
                       ],
                     );
                   }
