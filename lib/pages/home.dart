@@ -310,10 +310,10 @@ class _HomeState extends State<Home> {
                       // TODO: check if the button was already pressed to avoid loading multiple times
                       _controller.loadRequest(_newUri(
                           'en', 'Physics', _randomIntBetween(1, max(1, 3))));
-                      // TODO: add page to history
                     }
                   }),
                   child: Icon(
+                    // TODO: choose between add, question_mark, post_add or other potential icons
                     canGoForward ? Icons.arrow_forward_ios : Icons.add,
                     size: _iconSize,
                     color: Colors.black,

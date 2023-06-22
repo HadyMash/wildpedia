@@ -64,8 +64,6 @@ class LocalStorage {
       }
       article.bookmarked = value;
       await _isar.articles.put(article);
-      // ! temp // TODO: remove after testing
-      print('article bookmark set: $article');
     });
   }
 
