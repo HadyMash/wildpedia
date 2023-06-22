@@ -2,6 +2,7 @@ import 'package:isar/isar.dart';
 
 part 'article.g.dart';
 
+// TODO: make [Article.bookmarked] non-nullable
 @collection
 class Article {
   Id id;
