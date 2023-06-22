@@ -2,15 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:wildpedia/data/article.dart';
 import 'package:wildpedia/services/storage.dart';
 
 class History extends StatelessWidget {
   final HistoryView initialView;
-  final WebViewController webViewController;
-  const History(this.webViewController,
-      {this.initialView = HistoryView.history, super.key});
+  const History({this.initialView = HistoryView.history, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,17 +33,9 @@ class History extends StatelessWidget {
           children: [
             _PaginatedView(
               paginationFunction: LocalStorage().paginateBookmarkedArticles,
-              onTap: (url) {
-                webViewController.loadRequest(Uri.parse(url));
-                Navigator.of(context).pop();
-              },
             ),
             _PaginatedView(
               paginationFunction: LocalStorage().paginateArticles,
-              onTap: (url) {
-                webViewController.loadRequest(Uri.parse(url));
-                Navigator.of(context).pop();
-              },
             ),
           ],
         ),
@@ -53,12 +44,9 @@ class History extends StatelessWidget {
   }
 }
 
-// TODO: get rid of onTap and use provider to get the webview controller instead
 class _PaginatedView extends StatefulWidget {
   final _PaginationFunction paginationFunction;
-  final void Function(String url) onTap;
-  const _PaginatedView(
-      {required this.paginationFunction, required this.onTap, super.key});
+  const _PaginatedView({required this.paginationFunction, super.key});
 
   @override
   State<_PaginatedView> createState() => _PaginatedViewState();
@@ -170,7 +158,13 @@ class _PaginatedViewState extends State<_PaginatedView> {
                               !(article.bookmarked ?? false));
                         },
                       ),
-                      onTap: () => widget.onTap(article.url),
+                      onTap: () {
+                        final webViewController =
+                            Provider.of<WebViewController>(context,
+                                listen: false);
+                        webViewController.loadRequest(Uri.parse(article.url));
+                        Navigator.of(context).pop();
+                      },
                     ),
                   );
 

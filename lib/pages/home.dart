@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:wildpedia/data/article.dart';
 import 'package:wildpedia/services/storage.dart';
@@ -197,9 +198,13 @@ class _HomeState extends State<Home> {
 
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (context) => History(
-                                            _controller,
-                                            initialView: HistoryView.bookmarks),
+                                        builder: (context) =>
+                                            Provider<WebViewController>.value(
+                                          value: _controller,
+                                          child: const History(
+                                              initialView:
+                                                  HistoryView.bookmarks),
+                                        ),
                                       ),
                                     );
                                   },
@@ -213,7 +218,10 @@ class _HomeState extends State<Home> {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder: (context) =>
-                                            History(_controller),
+                                            Provider<WebViewController>.value(
+                                          value: _controller,
+                                          child: const History(),
+                                        ),
                                       ),
                                     );
                                   },
