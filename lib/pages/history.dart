@@ -358,6 +358,7 @@ class _ArticleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Slidable(
       key: ValueKey(article.id),
+      // TODO: consider putting in the end action pane to avoid accidentally deleting when swiping to close history page
       startActionPane: ActionPane(
         motion: const DrawerMotion(),
         dismissible: DismissiblePane(onDismissed: onDismissed),
