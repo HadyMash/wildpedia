@@ -12,6 +12,7 @@ import 'package:wildpedia/shared/snackbars.dart' as snackbars;
 import 'history.dart';
 import 'settings.dart';
 
+// TODO: test loading 'https://www.wikipedia.org/'
 class Home extends StatefulWidget {
   const Home({super.key});
 
