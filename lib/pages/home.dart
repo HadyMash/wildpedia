@@ -12,7 +12,6 @@ import 'package:wildpedia/shared/snackbars.dart' as snackbars;
 import 'history.dart';
 import 'settings.dart';
 
-// TODO: test bookmarking on non wikipedia pages
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -44,7 +43,6 @@ class _HomeState extends State<Home> {
     final Uri uri = Uri.parse(url);
     // TODO: update to work with wikiwand
     // TODO: update to work with other languages
-    // TODO: run this in a separate isolate
     if (uri.host.contains('wikipedia') && uri.path.startsWith('/wiki/')) {
       try {
         final title = uri.pathSegments[1];
@@ -93,8 +91,12 @@ class _HomeState extends State<Home> {
               debugPrint('started loading $url');
               isBookmarked = null;
               pageIdFuture = null;
-              pageIdFuture =
-                  Wikipedia.getPageId(Uri.parse(url).pathSegments[1]);
+              final uri = Uri.parse(url);
+              if (uri.host.contains('wikipedia') &&
+                  uri.path.startsWith('/wiki/')) {
+                pageIdFuture =
+                    Wikipedia.getPageId(Uri.parse(url).pathSegments[1]);
+              }
             });
           },
           onPageFinished: (String url) async {
@@ -326,7 +328,7 @@ class _HomeState extends State<Home> {
                         ? Icons.bookmark_remove
                         : Icons.bookmark_add_outlined,
                     size: _iconSize,
-                    color: Colors.black,
+                    color: isBookmarked == null ? Colors.grey : Colors.black,
                   ),
                 ),
                 CupertinoButton(
