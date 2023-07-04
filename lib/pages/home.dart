@@ -12,6 +12,7 @@ import 'package:wildpedia/shared/snackbars.dart' as snackbars;
 import 'history.dart';
 import 'settings.dart';
 
+// TODO: test bookmarking on non wikipedia pages
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -36,6 +37,42 @@ class _HomeState extends State<Home> {
   // default size is 24.0
   static const double _iconSize = 24.0;
 
+  /// Gets the article's id and then adds it to the history
+  ///
+  /// Returns true if successful, false otherwise (error or not a wikipedia page)
+  Future<bool> _addPageToHistory(String url) async {
+    final Uri uri = Uri.parse(url);
+    // TODO: update to work with wikiwand
+    // TODO: update to work with other languages
+    // TODO: run this in a separate isolate
+    if (uri.host.contains('wikipedia') && uri.path.startsWith('/wiki/')) {
+      try {
+        final title = uri.pathSegments[1];
+        final pageId = await pageIdFuture;
+        if (pageId == null) {
+          throw Exception('pageId is null');
+        }
+        var existingArticle = await storage.getArticle(pageId);
+        isBookmarked = existingArticle?.bookmarked ?? false;
+        storage.addArticleToHistory(
+          Article(
+            id: pageId,
+            title: title.replaceAll('_', ' '),
+            dateAccessed: DateTime.now(),
+            url: url,
+          ),
+          existingArticle,
+        );
+        return true;
+      } catch (e) {
+        debugPrint('error adding page to history: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+            snackbars.errorSnackBar(context, 'Error adding page to history'));
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,45 +89,21 @@ class _HomeState extends State<Home> {
             //     (this.progress < 100 ? this.progress : this.progress - 100));
           },
           onPageStarted: (String url) async {
-            debugPrint('started loading $url');
-            isBookmarked = null;
-            pageIdFuture = null;
-            pageIdFuture = Wikipedia.getPageId(Uri.parse(url).pathSegments[1]);
+            setState(() {
+              debugPrint('started loading $url');
+              isBookmarked = null;
+              pageIdFuture = null;
+              pageIdFuture =
+                  Wikipedia.getPageId(Uri.parse(url).pathSegments[1]);
+            });
           },
           onPageFinished: (String url) async {
             debugPrint('finished loading $url');
-            final Uri uri = Uri.parse(url);
-            // TODO: update to work with wikiwand
-            // TODO: update to work with other languages
-            // TODO: run this in a separate isolate
-            if (uri.host.contains('wikipedia') &&
-                uri.path.startsWith('/wiki/')) {
-              try {
-                final title = uri.pathSegments[1];
-                final pageId = await pageIdFuture;
-                if (pageId == null) {
-                  throw Exception('pageId is null');
-                }
-                var existingArticle = await storage.getArticle(pageId);
-                isBookmarked = existingArticle?.bookmarked ?? false;
-                storage.addArticleToHistory(
-                  Article(
-                    id: pageId,
-                    title: title.replaceAll('_', ' '),
-                    dateAccessed: DateTime.now(),
-                    url: url,
-                  ),
-                  existingArticle,
-                );
-              } catch (e) {
-                debugPrint('error adding page to history: $e');
-                ScaffoldMessenger.of(context).showSnackBar(snackbars
-                    .errorSnackBar(context, 'Error adding page to history'));
-              }
-            }
+
             List<bool> browserNavigation = await Future.wait([
               _controller.canGoBack(),
               _controller.canGoForward(),
+              _addPageToHistory(url),
             ]);
 
             setState(() {
@@ -139,6 +152,7 @@ class _HomeState extends State<Home> {
             ),
           ),
         ),
+        // TODO: fix issue where navigation buttons change icons after the page finishes loading instead of when they are pressed
         bottomNavigationBar: Padding(
           padding:
               EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
@@ -268,6 +282,7 @@ class _HomeState extends State<Home> {
                   onPressed: isBookmarked == null
                       ? null
                       : () async {
+                          bool? isBookmarkedCached = isBookmarked;
                           final pageId = await pageIdFuture;
                           if (pageId == null) {
                             if (context.mounted) {
@@ -286,10 +301,25 @@ class _HomeState extends State<Home> {
                             return;
                           }
                           setState(() {
-                            isBookmarked = !(isBookmarked!);
+                            isBookmarked = !(isBookmarkedCached!);
                           });
-                          await storage.setArticleBookmark(
-                              pageId, isBookmarked!);
+                          try {
+                            await storage.setArticleBookmark(
+                                pageId, !isBookmarkedCached!);
+                          } catch (e) {
+                            try {
+                              await _addPageToHistory(
+                                  (await _controller.currentUrl())!);
+                              await storage.setArticleBookmark(
+                                  pageId, !isBookmarkedCached!);
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    snackbars.errorSnackBar(
+                                        context, 'Error saving bookmark'));
+                              }
+                            }
+                          }
                         },
                   child: Icon(
                     (isBookmarked ?? false)
