@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-buddy/ide-toolbox": "^2.4.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@react-buddy/ide-toolbox": "^2.4.0"
+    "react-tooltip": "^5.21.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
