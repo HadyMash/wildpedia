@@ -75,11 +75,12 @@ function Content({ uri }) {
   };
 
   const progressBarRef = useRef(null);
+  const iframeRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const iframe = document.querySelector('iframe');
+    const iframe = iframeRef.current;
     if (!iframe) {
       return;
     }
@@ -98,7 +99,7 @@ function Content({ uri }) {
     const handleProgress = (e) => {
       console.log('progress', e);
       if (e.lengthComputable) {
-        const percentComplete = (event.loaded / event.total) * 100;
+        const percentComplete = (e.loaded / e.total) * 100;
         console.log('progress', `${percentComplete}%`);
         setProgress(percentComplete);
       }
@@ -134,7 +135,7 @@ function Content({ uri }) {
         progressBarRef={progressBarRef}
       />
       <div className={'content'}>
-        <iframe src={uri} title={'Wikipedia article'} />
+        <iframe src={uri} title={'Wikipedia article'} ref={iframeRef} />
       </div>
     </>
   );
@@ -174,6 +175,7 @@ function Controls({
   };
 
   // TODO: conditionally show forward/new and add disabled style to back when there are no more articles to go back to
+  // TODO: replace with icons
   return (
     <div className={'controls'}>
       <div className={'button-group'}>
